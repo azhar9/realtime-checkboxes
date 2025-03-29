@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real-Time Checkboxes</title>
+  <!-- Include Chakra UI CSS via CDN -->
+  <link rel="stylesheet" href="https://unpkg.com/@chakra-ui/core@1.0.0/dist/chakra-ui.min.css" />
+  <style>
+    /* Custom styling for the layout */
+    body {
+      font-family: 'Arial', sans-serif;
+      padding: 20px;
+      background-color: #f7fafc;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    h1 {
+      text-align: center;
+      color: #2b6cb0;
+      margin-bottom: 30px;
+    }
+
+    .checkbox-grid {
+      display: grid;
+      grid-template-columns: repeat(20, 1fr); /* 20 columns */
+      gap: 20px;
+      padding: 10px;
+      max-width: 1200px;
+      width: 100%;
+      overflow-y: auto;
+      max-height: 80vh;  /* Set max height to create a scrollable container */
+    }
+
+    .checkbox-item {
+      text-align: center;
+      padding: 10px;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .checkbox-item:hover {
+      transform: scale(1.05);
+      box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .checkbox-label {
+      font-size: 12px; /* Smaller font size */
+      color: #2d3748;
+      margin-top: 8px;
+    }
+
+    input[type="checkbox"] {
+      width: 20px;  /* Smaller checkbox */
+      height: 20px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div>
+    <h1>Real-Time Checkboxes</h1>
+    <div class="checkbox-grid" id="checkbox-container">
+      <!-- Checkboxes will be dynamically created here -->
+    </div>
+  </div>
+
+  <script>
+    // Base URL for the API (adjust HOSTNAME/port as needed)
+    const HOSTNAME = 'localhost';
+    const BASE_URL = 'http://' + HOSTNAME + ':8000';
+
+    // Reference to the container where checkboxes will be added
+    const container = document.getElementById('checkbox-container');
+
+    // Function to create and append 100 checkboxes in a grid layout
+    function createCheckboxes() {
+      for (let i = 1; i <= 100; i++) {
+        const checkboxWrapper = document.createElement('div');
+        checkboxWrapper.classList.add('checkbox-item');
+
+        // Create checkbox
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = 'checkbox-' + i;
+        checkbox.classList.add('checkbox');
+
+        // Attach change event listener to send updates to the API
+        checkbox.addEventListener('change', (event) => {
+          const isChecked = event.target.checked;
+          const payload = { id: checkbox.id, checked: isChecked };
+
+          fetch(BASE_URL + '/api/checkbox', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          })
+          .catch(error => console.error('Error sending checkbox update:', error));
+        });
+
+        // Create label for the checkbox (showing the checkbox number)
+        const label = document.createElement('label');
+        label.classList.add('checkbox-label');
+        label.setAttribute('for', checkbox.id);
+        label.innerText = `#${i}`;
+
+        // Append checkbox and label to the wrapper
+        checkboxWrapper.appendChild(checkbox);
+        checkboxWrapper.appendChild(label);
+
+        // Add the wrapper to the grid container
+        container.appendChild(checkboxWrapper);
+      }
+    }
+
+    // Load existing checkbox states from the API and update checkboxes
+    function loadExistingStates() {
+      fetch(BASE_URL + '/api/checkbox/states')
+        .then(response => response.json())
+        .then(states => {
+          // Expected states format: { "checkbox-1": true, "checkbox-2": false, ... }
+          for (const [id, state] of Object.entries(states)) {
+            const checkbox = document.getElementById(id);
+            if (checkbox) {
+              checkbox.checked = state;
+            }
+          }
+        })
+        .catch(error => console.error('Error fetching existing states:', error));
+    }
+
+    // Initialize the checkboxes and load states when the page loads
+    createCheckboxes();
+    loadExistingStates();
+
+    // Set up a WebSocket to subscribe to real-time checkbox events
+    const socket = new WebSocket('ws://' + HOSTNAME + ':8000/ws/checkbox');
+
+    // When a message is received, update the corresponding checkbox state
+    socket.onmessage = function(event) {
+      try {
+        const data = JSON.parse(event.data);
+        // Expected data format: { id: "checkbox-123", checked: true/false }
+        const checkbox = document.getElementById(data.id);
+        if (checkbox) {
+          checkbox.checked = data.checked;
+        }
+      } catch (err) {
+        console.error('Error processing websocket message:', err);
+      }
+    };
+
+    // Optional: Log WebSocket connection events
+    socket.onopen = () => console.log('WebSocket connection established.');
+    socket.onerror = error => console.error('WebSocket error:', error);
+    socket.onclose = () => console.log('WebSocket connection closed.');
+  </script>
+
+</body>
+</html>

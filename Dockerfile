@@ -9,17 +9,16 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     libssl-dev \
     libffi-dev \
-    python-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements.txt into the container
-COPY requirements.txt /app/
+COPY ./app/requirements.txt /app/
 
 # Install the required dependencies (including dev dependencies)
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application files into the container (for live-reloading)
-COPY . /app/
+COPY ./app/* /app/
 
 # Expose the port that FastAPI will run on
 EXPOSE 8000
